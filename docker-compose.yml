@@ -1,0 +1,43 @@
+version: '3'
+
+services:
+  db:
+    container_name: _NAME_-db
+    image: mariadb:latest
+    restart: always
+    volumes:
+      - ./docker/mariadb:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wp
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: wp
+
+  wordpress:
+    container_name: _NAME_-wp
+    depends_on:
+      - db
+    image: wordpress:latest
+    ports:
+      - "8080:80"
+    restart: always
+    volumes:
+      - ./docker/wp:/var/www/html:rw
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: wp
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_TABLE_PREFIX: _PREFIX_
+
+  phpmyadmin:
+    container_name: _NAME_-pma
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "8181:80"
+    environment:
+      MYSQL_USERNAME: root
+      MYSQL_ROOT_PASSWORD: root

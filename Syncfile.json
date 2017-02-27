@@ -1,0 +1,12 @@
+{
+  "servers" : [
+    {
+      "host": "",
+      "port": "",
+      "user": "",
+      "pass": "",
+      "distant": "",
+      "folder": ""
+    }
+  ]
+}
