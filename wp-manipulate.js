@@ -30,9 +30,9 @@ var _data = {
 var _cmds = {
     reinit : function () {
         rm('-rf', ['.git', '.gitignore', 'README.md']);
-        mkdir('-p',__dirname+'/docker/wp/wp-content');
-        cd(__dirname+'/docker/wp/wp-content');
-        exec('git init');
+        mkdir('-p',__dirname+'/docker/wp/wp-content/themes');
+        cd(__dirname+'/docker/wp/wp-content/themes');
+        exec('git init && git add . && git commit -m "Initial commit"');
         if (_data.git != '')
             exec('git remote add origin '+_data.git);
     },
