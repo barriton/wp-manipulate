@@ -30,11 +30,15 @@ var _data = {
 var _cmds = {
     reinit : function () {
         rm('-rf', ['.git', '.gitignore', 'README.md']);
-        mkdir('-p',__dirname+'/docker/wp/wp-content/themes');
-        cd(__dirname+'/docker/wp/wp-content/themes');
-        exec('git init && git add . && git commit -m "Initial commit"');
+        var _themeFolder = __dirname+'/docker/wp/wp-content/themes/'+_data.name;
+        mkdir('-p',_themeFolder);
+        cd(_themeFolder);
+        exec('git clone https://github.com/barriton/scratch.git . && npm install && grunt begin');
+        /*
+        exec('git init && git add . && git commit -m "Initial commit" ');
         if (_data.git != '')
             exec('git remote add origin '+_data.git);
+            */
     },
     install : function () {
         echo('Installation...');
