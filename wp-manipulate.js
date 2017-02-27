@@ -30,6 +30,7 @@ var _data = {
 var _cmds = {
     reinit : function () {
         rm('-rf', ['.git', '.gitignore', 'README.md']);
+        mkdir('-p',__dirname+'/docker/wp/wp-content');
         cd(__dirname+'/docker/wp/wp-content');
         exec('git init');
         if (_data.git != '')
@@ -66,12 +67,10 @@ var _cmds = {
                         _data.git = answer;
 
                     // Run docker
-                    exec('docker-compose up -d', function () {
+                    exec('docker-compose up -d');
 
-                        // Reinit
-                        _cmds.reinit();
-
-                    });
+                    // Reinit
+                    _cmds.reinit();
 
                 });
 
