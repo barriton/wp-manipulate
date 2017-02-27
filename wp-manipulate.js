@@ -34,6 +34,7 @@ var _cmds = {
         mkdir('-p',_themeFolder);
         cd(_themeFolder);
         exec('git clone https://github.com/barriton/scratch.git . && npm install && grunt begin');
+        _fs.writeFileSync(_themeFolder+'/.gitignore','/node_modules\n/assets/js/build\n/assets/css/build\npackage.json\nGruntfile.js');
         exec('git init && git add . && git commit -m "Initial commit" ');
         if (_data.git != '')
             exec('git remote add origin '+_data.git);
