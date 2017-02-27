@@ -12,7 +12,6 @@
     "wp-manipulate": "wp-manipulate.js"
   },
   "dependencies": {
-    "ftpsync": "^0.1.10",
     "shelljs": "^0.7.6"
   }
 }
