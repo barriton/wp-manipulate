@@ -34,10 +34,11 @@ var _cmds = {
         mkdir('-p',_themeFolder);
         cd(_themeFolder);
         exec('git clone https://github.com/barriton/scratch.git . && npm install && grunt begin');
-        _fs.writeFileSync(_themeFolder+'/.gitignore','/node_modules\n/assets/js/build\n/assets/css/build\npackage.json\nGruntfile.js');
-        exec('git init && git add . && git commit -m "Initial commit" ');
-        if (_data.git != '')
-            exec('git remote add origin '+_data.git);
+        if (_data.git != '') {
+            _fs.writeFileSync(_themeFolder + '/.gitignore', '/node_modules\n/assets/js/build\n/assets/css/build\npackage.json\nGruntfile.js');
+            exec('git init && git add . && git commit -m "Initial commit" ');
+            exec('git remote add origin ' + _data.git);
+        }
     },
     install : function () {
         echo('Installation...');
@@ -81,8 +82,6 @@ var _cmds = {
         });
     },
     help : function () {
-        _cmds.remove();
-
         echo('\nWP Manipule, du local au web');
         echo('\nUsage : \nwp-manipulate --help, --install, --watch\n');
         echo('--help : Affiche cette aide');
