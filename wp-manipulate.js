@@ -24,20 +24,25 @@ _args = _parse(_args);
 var _data = {
     'name' : _path.parse(__dirname)['base'],
     'prefix' :  randomString(8)+'_',
-    'git' : ''
+    'git' : '',
+    'themes' : []
 };
 
 var _cmds = {
     reinit : function () {
         rm('-rf', ['.git', '.gitignore', 'README.md']);
-        var _themeFolder = __dirname+'/docker/wp/wp-content/themes/'+_data.name;
-        mkdir('-p',_themeFolder);
-        cd(_themeFolder);
-        exec('git clone https://github.com/barriton/scratch.git . && npm install && grunt begin');
-        if (_data.git != '') {
-            _fs.writeFileSync(_themeFolder + '/.gitignore', '/node_modules\n/assets/js/build\n/assets/css/build\npackage.json\nGruntfile.js');
-            exec('git init && git add . && git commit -m "Initial commit" ');
-            exec('git remote add origin ' + _data.git);
+        if (_data.themes != '' && _data.themes.length > 0){
+            _data.themes.forEach(function (_index, _value) {
+                var _themeFolder = __dirname+'/docker/wp/wp-content/themes/'+_index;
+                mkdir('-p',_themeFolder);
+                cd(_themeFolder);
+                exec('git clone https://github.com/barriton/scratch.git . && npm install && grunt begin');
+                if (_data.git != '') {
+                    _fs.writeFileSync(_themeFolder + '/.gitignore', '/node_modules\n/assets/js/build\n/assets/css/build\npackage.json\nGruntfile.js');
+                    exec('git init && git add . && git commit -m "Initial commit" ');
+                    exec('git remote add origin ' + _data.git);
+                }
+            });
         }
     },
     install : function () {
@@ -65,16 +70,24 @@ var _cmds = {
                 }
 
                 _r.question('Dépôt git distant ? : \n', function (answer) {
-                    _r.close();
 
                     if (answer.trim() != '')
                         _data.git = answer;
 
-                    // Run docker
-                    exec('docker-compose up -d');
+                    _r.question('Créer les dossiers de thèmes ? (saisir les slugs séparés par une virgule) : \n', function (answer) {
 
-                    // Reinit
-                    _cmds.reinit();
+                        if (answer.trim() != '')
+                            _data.themes = answer.trim().split(',');
+
+                        // Run docker
+                        exec('docker-compose up -d');
+
+                        // Reinit
+                        _cmds.reinit();
+
+                        _r.close();
+
+                    });
 
                 });
 
