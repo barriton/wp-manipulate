@@ -1,0 +1,9 @@
+{
+  "replaces": [
+    {
+      "search": "domain.abc",
+      "replace": "domain.def"
+    }
+  ],
+  "ping": "http://domain.tld?barriton_api_key=KEY&cli=CMD"
+}

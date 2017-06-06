@@ -1,6 +1,6 @@
 {
   "name": "wp-manipulate",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -12,6 +12,9 @@
     "wp-manipulate": "wp-manipulate.js"
   },
   "dependencies": {
-    "shelljs": "^0.7.6"
+    "shelljs": "^0.7.6",
+    "request": "^2.81.0",
+    "md5": "^2.2.1",
+    "readline-sync": "^1.4.7"
   }
 }

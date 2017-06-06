@@ -1,7 +1,9 @@
 #! /usr/bin/env node
-
-var _shell = require("shelljs/global");
+require("shelljs/global");
+var _md5 = require('md5');
+var _req = require('request');
 var _rl = require('readline');
+var _rlSync = require('readline-sync');
 var _path = require('path');
 var _parse = require('./parser.es5');
 var _fs = require('fs');
@@ -11,6 +13,16 @@ function randomString(length) {
     var result = '';
     for (var i = length; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
     return result;
+}
+
+function guid() {
+    function s4() {
+        return Math.floor((1 + Math.random()) * 0x10000)
+            .toString(16)
+            .substring(1);
+    }
+    return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+        s4() + '-' + s4() + s4() + s4();
 }
 
 // Print help
@@ -24,11 +36,61 @@ _args = _parse(_args);
 var _data = {
     'name' : _path.parse(__dirname)['base'],
     'prefix' :  randomString(8)+'_',
-    'git' : '',
     'themes' : []
 };
 
 var _cmds = {
+    doSync : function () {
+        var _gitStatus = exec('cd ./docker/wp && git status',{silent:true});
+        if (_gitStatus.code > 0) {
+            var _git = '';
+            while (_git == '') {
+                _git = _rlSync.question('Repo distant ? : \n');
+            }
+            exec('cd ./docker/wp && git init && git remote add origin ' + _git,{silent:true});
+            echo('Initialisation de git ok.');
+        }
+
+        // get json sync file
+        var _sync = JSON.parse(_fs.readFileSync('./.Sync.json', 'utf8'));
+
+        // Remove old dump & build file.
+        exec('cd ./docker/wp && ls | grep "^dump-[a-z0-9-]*.sql$" | xargs rm', {silent : true});
+        exec('cd ./docker/wp && ls | grep "^build-[a-z0-9-]*$" | xargs rm', {silent : true});
+
+        // Create build file
+        var _build = guid();
+        touch('./docker/wp/build-'+_build);
+
+        _req(_sync.ping, function (error, response, body) {
+            if (!error && response.statusCode == 200){
+                var _dump = body;
+
+                // Change occurences
+                if (_sync.replaces.length > 0) {
+                    for (var _i = 0; _i < _sync.replaces.length; _i++) {
+                        sed('-i', _sync.replaces[_i].search, _sync.replaces[_i].replace, './docker/wp/'+_dump);
+                    }
+
+                    var _git = exec('cd ./docker/wp/ && git add . && git commit -m "Build '+_build+'" && git push origin master',{silent : true});
+                    if (_git.code == 0){
+                        echo('Synchronisation terminée');
+                    }else{
+                        echo('Erreur lors de la synchronisation');
+                    }
+                }
+            }
+        });
+    },
+    sync : function(){
+        _fs.open('.Sync.json', 'r', function (err, fd) {
+            if (err && err.code == 'ENOENT'){
+                echo('Le fichier de synchronisation ".Sync.json" est inexistant');
+            }else{
+                _cmds.doSync();
+            }
+        })
+    },
     reinit : function () {
         rm('-rf', ['.git', '.gitignore', 'README.md']);
         if (_data.themes != '' && _data.themes.length > 0){
@@ -37,11 +99,6 @@ var _cmds = {
                 mkdir('-p',_themeFolder);
                 cd(_themeFolder);
                 exec('git clone https://github.com/barriton/scratch.git . && npm install && grunt begin');
-                if (_data.git != '') {
-                    _fs.writeFileSync(_themeFolder + '/.gitignore', '/node_modules\n/assets/js/build\n/assets/css/build\npackage.json\nGruntfile.js');
-                    exec('git init && git add . && git commit -m "Initial commit" ');
-                    exec('git remote add origin ' + _data.git);
-                }
             });
         }
     },
@@ -53,6 +110,7 @@ var _cmds = {
             input : process.stdin,
             output : process.stdout
         });
+
         _r.question('Nom du projet ? ('+(_data.name)+') : \n', function (answer) {
             if (answer.trim() != '')
                 _data.name = answer;
@@ -63,31 +121,20 @@ var _cmds = {
                     _data.prefix = answer;
 
                 // Generate docker-compose.yml
-                for(var _index in _data){
-                    var _val = _data[_index];
-                    var _regex = new RegExp('_'+_index.toUpperCase()+'_');
-                    sed('-i',_regex, _val, 'docker-compose.yml');
-                }
+                sed('-i','_NAME_', _data.name, 'docker-compose.yml');
 
-                _r.question('Dépôt git distant ? : \n', function (answer) {
+                _r.question('Créer les dossiers de thèmes ? (saisir les slugs séparés par une virgule) : \n', function (answer) {
 
                     if (answer.trim() != '')
-                        _data.git = answer;
+                        _data.themes = answer.trim().split(',');
 
-                    _r.question('Créer les dossiers de thèmes ? (saisir les slugs séparés par une virgule) : \n', function (answer) {
+                    // Run docker
+                    exec('docker-compose up -d');
 
-                        if (answer.trim() != '')
-                            _data.themes = answer.trim().split(',');
+                    // Reinit
+                    _cmds.reinit();
 
-                        // Run docker
-                        exec('docker-compose up -d');
-
-                        // Reinit
-                        _cmds.reinit();
-
-                        _r.close();
-
-                    });
+                    _r.close();
 
                 });
 
@@ -102,6 +149,7 @@ var _cmds = {
         echo('--start : Start les conteneurs Docker');
         echo('--stop : Stop les conteneurs Docker');
         echo('--rm : Supprime le Wordpress (Docker + files)');
+        echo('--sync : Synchronise le local au distant');
     },
     stop : function () {
         echo('Arrêt...');
@@ -135,11 +183,6 @@ for(var _index in _args){
         case 'stop' :
 
             _cmds.stop();
-
-            break;
-        case 'watch' :
-
-            _cmds.watch();
 
             break;
         case 'sync' :
