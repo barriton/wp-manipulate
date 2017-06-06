@@ -22,9 +22,9 @@ ssh -T hg@bitbucket.org
 ```
 /domain
 /domain/builds/
-/domain/.htaccess
 ```
 * Créer le lien symbolique de la build courante vers le dossier current
+* Faire pointer le root path vers le dossier current
 ```
 ln -s builds/build- current
 ```
