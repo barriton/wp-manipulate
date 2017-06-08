@@ -5,5 +5,11 @@
       "replace": "domain.def"
     }
   ],
-  "ping": "http://domain.tld?barriton_api_key=KEY&cli=CMD"
+  "ping": "http://domain.tld?barriton_api_key=KEY",
+  "db" : {
+    "name" : "dbname",
+    "user" : "dbuser",
+    "password" : "dbpass",
+    "host" : "dbhost"
+  }
 }

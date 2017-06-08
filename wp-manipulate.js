@@ -1,12 +1,13 @@
 #! /usr/bin/env node
+
 require("shelljs/global");
 var _md5 = require('md5');
 var _req = require('request');
-var _rl = require('readline');
 var _rlSync = require('readline-sync');
 var _path = require('path');
 var _parse = require('./parser.es5');
 var _fs = require('fs');
+var _yaml = require('read-yaml');
 
 function randomString(length) {
     var chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -41,6 +42,10 @@ var _data = {
 
 var _cmds = {
     doSync : function () {
+        echo('Début de synchro...');
+        // get json sync file
+        var _sync = JSON.parse(_fs.readFileSync('./.Sync.json', 'utf8'));
+
         var _gitStatus = exec('cd ./docker/wp && git status',{silent:true});
         if (_gitStatus.code > 0) {
             var _git = '';
@@ -48,11 +53,8 @@ var _cmds = {
                 _git = _rlSync.question('Repo distant ? : \n');
             }
             exec('cd ./docker/wp && git init && git remote add origin ' + _git,{silent:true});
-            echo('Initialisation de git ok.');
+            echo('... Initialisation de git ok.');
         }
-
-        // get json sync file
-        var _sync = JSON.parse(_fs.readFileSync('./.Sync.json', 'utf8'));
 
         // Remove old dump & build file.
         exec('cd ./docker/wp && ls | grep "^dump-[a-z0-9-]*.sql$" | xargs rm', {silent : true});
@@ -66,19 +68,44 @@ var _cmds = {
             if (!error && response.statusCode == 200){
                 var _dump = body;
 
-                // Change occurences
                 if (_sync.replaces.length > 0) {
+                    // Change occurences
                     for (var _i = 0; _i < _sync.replaces.length; _i++) {
-                        sed('-i', _sync.replaces[_i].search, _sync.replaces[_i].replace, './docker/wp/'+_dump);
-                    }
-
-                    var _git = exec('cd ./docker/wp/ && git add . && git commit -m "Build '+_build+'" && git push origin master',{silent : true});
-                    if (_git.code == 0){
-                        echo('Synchronisation terminée');
-                    }else{
-                        echo('Erreur lors de la synchronisation');
+                        sed('-i', _sync.replaces[_i].search, _sync.replaces[_i].replace, './docker/wp/' + _dump);
                     }
                 }
+
+                // Set WP Config
+                _yaml('docker-compose.yml', function (err, data) {
+
+                    if (err) throw err;
+
+                    var _wp = data.services.wordpress.environment;
+                    sed('-i',"'DB_NAME', '"+_wp.WORDPRESS_DB_NAME+"'", "'DB_NAME', '"+_sync.db.name+"'", './docker/wp/wp-config.php');
+                    sed('-i',"'DB_USER', '"+_wp.WORDPRESS_DB_USER+"'", "'DB_USER', '"+_sync.db.user+"'", './docker/wp/wp-config.php');
+                    sed('-i',"'DB_PASSWORD', '"+_wp.WORDPRESS_DB_PASSWORD+"'", "'DB_PASSWORD', '"+_sync.db.password+"'", './docker/wp/wp-config.php');
+                    sed('-i',"'DB_HOST', '"+_wp.WORDPRESS_DB_HOST+"'", "'DB_HOST', '"+_sync.db.host+"'", './docker/wp/wp-config.php');
+
+                    var _git = exec('cd ./docker/wp/ && git add . && git commit -m "Build '+_build+'" && git push origin master', {silent : true});
+                    if (_git.code == 0){
+
+                        // Back to default WP Config
+                        _yaml('docker-compose.yml', function (err, data) {
+                            if (err) throw err;
+
+                            var _wp = data.services.wordpress.environment;
+                            sed('-i',"'DB_NAME', '"+_sync.db.name+"'", "'DB_NAME', '"+_wp.WORDPRESS_DB_NAME+"'", './docker/wp/wp-config.php');
+                            sed('-i',"'DB_USER', '"+_sync.db.user+"'", "'DB_USER', '"+_wp.WORDPRESS_DB_USER+"'", './docker/wp/wp-config.php');
+                            sed('-i',"'DB_PASSWORD', '"+_sync.db.password+"'", "'DB_PASSWORD', '"+_wp.WORDPRESS_DB_PASSWORD+"'", './docker/wp/wp-config.php');
+                            sed('-i',"'DB_HOST', '"+_sync.db.host+"'", "'DB_HOST', '"+_wp.WORDPRESS_DB_HOST+"'", './docker/wp/wp-config.php');
+                        });
+
+                        echo('... Synchronisation terminée');
+                    }else{
+                        echo('... Erreur lors de la synchronisation');
+                    }
+
+                });
             }
         });
     },
@@ -98,48 +125,35 @@ var _cmds = {
                 var _themeFolder = __dirname+'/docker/wp/wp-content/themes/'+_index;
                 mkdir('-p',_themeFolder);
                 cd(_themeFolder);
-                exec('git clone https://github.com/barriton/scratch.git . && npm install && grunt begin');
+                exec('git clone https://github.com/barriton/scratch.git . && npm install && grunt begin', {silent:true});
+                echo ('... Terminée avec succès');
             });
         }
     },
     install : function () {
         echo('Installation...');
 
-        // Prompt each data
-        var _r = _rl.createInterface({
-            input : process.stdin,
-            output : process.stdout
-        });
+        var _name = _rlSync.question('Nom du projet ? ('+(_data.name)+') : \n');
+        if (_name != '')
+            _data.name = _name;
 
-        _r.question('Nom du projet ? ('+(_data.name)+') : \n', function (answer) {
-            if (answer.trim() != '')
-                _data.name = answer;
+        var _prefix = _rlSync.question('Préfixe de table ? ('+_data.prefix+') : \n');
+        if (_prefix != '')
+            _data.prefix = _prefix;
 
-            _r.question('Préfixe de table ? ('+_data.prefix+') : \n', function (answer) {
+        var _folders = _rlSync.question('Créer les dossiers de thèmes ? (saisir les slugs séparés par une virgule) : \n');
+        if (_folders != '')
+            _data.themes = _folders.trim().split(',');
 
-                if (answer.trim() != '')
-                    _data.prefix = answer;
+        // Change in docker-compose
+        sed('-i','_NAME_', _data.name, 'docker-compose.yml');
+        sed('-i','_PREFIX_', _data.prefix, 'docker-compose.yml');
 
-                // Generate docker-compose.yml
-                sed('-i','_NAME_', _data.name, 'docker-compose.yml');
+        // Run docker
+        exec('docker-compose up -d', {silent:true});
 
-                _r.question('Créer les dossiers de thèmes ? (saisir les slugs séparés par une virgule) : \n', function (answer) {
-
-                    if (answer.trim() != '')
-                        _data.themes = answer.trim().split(',');
-
-                    // Run docker
-                    exec('docker-compose up -d');
-
-                    // Reinit
-                    _cmds.reinit();
-
-                    _r.close();
-
-                });
-
-            });
-        });
+        // Reinit
+        _cmds.reinit();
     },
     help : function () {
         echo('\nWP Manipule, du local au web');
@@ -153,16 +167,19 @@ var _cmds = {
     },
     stop : function () {
         echo('Arrêt...');
-        exec('docker-compose stop');
+        exec('docker-compose stop', {silent : true});
+        echo('... Terminé');
     },
     start : function () {
         echo('Démarrage...');
-        exec('docker-compose start');
+        exec('docker-compose start', {silent : true});
+        echo('... Prêt');
     },
     rm : function () {
         echo('Suppression...');
-        exec('docker-compose down -v');
+        exec('docker-compose down -v', {silent: true});
         rm('-rf', './docker');
+        echo('... Terminée');
     }
 };
 
